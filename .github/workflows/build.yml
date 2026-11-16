@@ -1,0 +1,66 @@
+
+name: Build AXIOM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Minecraft Mod
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Extract AXIOM source
+        run: |
+          ZIP_FILE="AXIOM6-fixed-source.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: $ZIP_FILE not found!"
+            exit 1
+          fi
+
+          unzip -t "$ZIP_FILE"
+          mkdir -p axiom-source
+          unzip -q "$ZIP_FILE" -d axiom-source
+
+      - name: Locate Gradle project
+        run: |
+          BUILD_FILE=$(find axiom-source -name build.gradle -o -name build.gradle.kts | head -n 1)
+
+          if [ -z "$BUILD_FILE" ]; then
+            echo "ERROR: Gradle build file not found!"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$BUILD_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build AXIOM
+        run: |
+          cd "$PROJECT_DIR"
+          gradle --no-daemon clean build
+
+      - name: Upload compiled JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: AXIOM-2.0.2
+          path: |
+            ${{ env.PROJECT_DIR }}/build/libs/*.jar
+          if-no-files-found: error
